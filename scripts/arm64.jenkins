@@ -1,0 +1,102 @@
+pipeline {
+    agent {
+        label "arm"
+    }
+    environment {
+        FILE_LOG_NAME = "p4tc.log"
+    }
+    stages {
+        stage('Clone Project') {
+            steps {
+                git branch: 'master-next', url: 'https://github.com/p4tc-dev/linux-p4tc-pub.git'
+                sh "git branch"
+            }
+        }
+        stage('Clone Iproute') {
+            steps {
+                sh "git clone https://github.com/p4tc-dev/iproute2-p4tc-pub.git"
+            }
+        }
+        stage('Build Iproute') {
+            steps {
+                sh "apt install -y gawk flex bison libelf-dev libmnl-dev pkg-config"
+                sh """
+                cd iproute2-p4tc-pub
+                ./configure
+                make -j\$(nproc)
+                make install
+                cd ..
+                """
+            }
+        }
+        stage('Make Config') {
+            steps {
+                sh "make defconfig"
+                sh "./scripts/kconfig/merge_config.sh -m .config ./tools/testing/selftests/tc-testing/config"
+            }
+        }
+        stage('Build') {
+            steps {
+                sh "make -j \$(nproc) mod2yesconfig"
+                sh "grep \"KVM\" ./.config"
+                sh "make -j \$(nproc) Image.gz"
+            }
+        }
+        stage('Run Tests') {
+            steps {
+                sh """
+                    virtme-run \
+                  --arch aarch64 \
+                  --cpus \$(nproc) \
+                  --memory 1024 \
+                  --kimg arch/arm64/boot/Image.gz \
+                  --root="/" \
+                  --rwdir="/mnt=\$(pwd)" \
+                  --script-sh "cd /mnt/tools/testing/selftests/tc-testing && ./tdc.py -c p4tc" 2>&1 | tee ${env.FILE_LOG_NAME}
+                """
+            }
+        }
+        stage('Results') {
+            steps {
+                //Kernel panic?
+                sh """
+                if [ "\$(grep "Kernel panic" ${env.FILE_LOG_NAME})" != "" ]; then
+                    cat ${env.FILE_LOG_NAME};
+                    echo "Kernel Panic";
+                    exit 1;
+                fi
+                """
+                //Tests != 0
+                sh """
+                if [ "\$(grep -E "exit: [1-9]{1,3}" ${env.FILE_LOG_NAME})" != "" ]; then
+                    cat ${env.FILE_LOG_NAME};
+                    echo "Error";
+                    exit 1;
+                fi
+                """
+                sh """
+                if [ "\$(grep -E "returncode [1-9]{1,3}" ${env.FILE_LOG_NAME})" != "" ]; then
+                    cat ${env.FILE_LOG_NAME};
+                    echo "Error";
+                    exit 1;
+                fi
+                """
+                //If virtme scripts return something != 0
+                sh """
+                if [ "\$(grep -E "script returned [1-9]{1,3}" ${env.FILE_LOG_NAME})" != "" ]; then
+                    cat ${env.FILE_LOG_NAME};
+                    echo "Script Error";
+                    exit 1;
+                fi
+                """
+                
+                sh "echo All tests passed successfully"
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}

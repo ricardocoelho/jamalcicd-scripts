@@ -1,0 +1,13 @@
+services:
+  jenkins:
+    build: .
+    # privileged: true
+    devices:
+      - "/dev/kvm"
+    network_mode: "host"
+    restart: on-failure
+    environment:
+      - JENKINS_SECRET=SECRET
+      - JENKINS_URL=http://ip:8080
+      - JENKINS_AGENT_NAME=slave1
+    init: true

@@ -1,0 +1,37 @@
+version: '3'
+
+services:
+  tests:
+    build: .
+    container_name: p4tc_tests
+    devices:
+      - "/dev/kvm"
+    env_file:
+      - .env
+    entrypoint:
+    - /bin/bash
+    - -c
+    - "${IPROUTE2} && /home/linux/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} ${SCRIPT}"
+    volumes:
+      - .:/home/linux
+      - ${IPROUTE2_PATH}:/home/iproute2
+
+  shell:
+    build: .
+    container_name: p4tc_shell
+    profiles: ["shell"]
+    devices:
+      - "/dev/kvm"
+    env_file:
+      - .env
+    entrypoint:
+    - /bin/bash
+    - -c
+    - "${IPROUTE2} && /home/linux/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} -s"
+    stdin_open: true
+    tty: true 
+    volumes:
+      - .:/home/linux
+      - ${IPROUTE2_PATH}:/home/iproute2
+
+  
