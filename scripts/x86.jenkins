@@ -7,12 +7,6 @@ pipeline {
         FILE_LOG_NAME = "p4tc.log"
     }
     stages {
-        stage('Clone Project') {
-            steps {
-                git branch: 'master-next', url: "https://github.com/p4tc-dev/linux-p4tc-pub.git"
-                
-            }
-        }
         stage('Clone Iproute') {
             steps {
                 sh "git clone https://github.com/p4tc-dev/iproute2-p4tc-pub.git"
