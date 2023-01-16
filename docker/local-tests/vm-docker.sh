@@ -101,8 +101,10 @@ fi
 docker build . -t p4tc_docker
 
 docker run -it --rm --device=/dev/kvm \
-    -v $LINUX_PATH:/home/linux \
-    -v $IPROUTE_PATH:/home/iproute2 \
+    -v $LINUX_PATH:$LINUX_PATH \
+    -v $IPROUTE_PATH:$IPROUTE_PATH \
+    -e LINUX_PATH="$LINUX_PATH" \
+    -e IPROUTE_PATH="$IPROUTE_PATH" \
     -e ARCH="$ARCH" \
     -e ROOT="$ROOTFS" \
     -e CPU="$VMCPUS" \

@@ -23,9 +23,8 @@ RUN apt-get install -y python3-setuptools
 RUN cd /home/virtme && git clone https://github.com/expertisesolutions/virtme.git . && python3 setup.py install
 
 #Iproute2
-RUN mkdir /home/iproute2
 RUN apt install -y gawk flex bison libelf-dev libmnl-dev pkg-config
 
 WORKDIR /home/linux
 
-ENTRYPOINT /home/iproute2/configure && make -C /home/iproute2 -j $(nproc) && make -C /home/iproute2 install && /home/linux/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} ${DRY} ${CONFIG_GEN} ${SHELL} ${SCRIPT}
+ENTRYPOINT cd ${IPROUTE_PATH} && ./configure && make -C ${IPROUTE_PATH} -j $(nproc) && make -C ${IPROUTE_PATH} install && ${LINUX_PATH}/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} ${DRY} ${CONFIG_GEN} ${SHELL} ${SCRIPT}
