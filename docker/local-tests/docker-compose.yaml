@@ -11,9 +11,9 @@ services:
     entrypoint:
     - /bin/bash
     - -c
-    - "${IPROUTE2} && /home/linux/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} ${SCRIPT}"
+    - "/home/iproute2/configure && make -C /home/iproute2 -j $$(nproc) && make -C /home/iproute2 install && /home/linux/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} ${DRY} ${CONFIG_GEN} ${SCRIPT}"
     volumes:
-      - .:/home/linux
+      - ${LINUX_PATH}:/home/linux
       - ${IPROUTE2_PATH}:/home/iproute2
 
   shell:
@@ -27,11 +27,11 @@ services:
     entrypoint:
     - /bin/bash
     - -c
-    - "${IPROUTE2} && /home/linux/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} -s"
+    - "/home/iproute2/configure && make -C /home/iproute2 -j $$(nproc) && make -C /home/iproute2 install && /home/linux/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} -s"
     stdin_open: true
     tty: true 
     volumes:
-      - .:/home/linux
+      - ${LINUX_PATH}:/home/linux
       - ${IPROUTE2_PATH}:/home/iproute2
 
   
