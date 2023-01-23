@@ -6,7 +6,7 @@ RUN apt-get update
 
 #Linux
 RUN apt-get install -y git fakeroot build-essential ncurses-dev xz-utils libssl-dev bc flex libelf-dev bison 
-RUN apt-get install -y libz-dev libcurl4-gnutls-dev libexpat1-dev gettext cmake gcc curl
+RUN apt-get install -y libz-dev libcurl4-gnutls-dev libexpat1-dev gettext cmake gcc curl sudo
 
 #QEMU
 RUN apt-get install -y busybox-static kmod
@@ -25,6 +25,7 @@ RUN cd /home/virtme && git clone https://github.com/expertisesolutions/virtme.gi
 #Iproute2
 RUN apt install -y gawk flex bison libelf-dev libmnl-dev pkg-config
 
-WORKDIR /home/linux
+COPY ./vm.sh /opt/vm.sh
+COPY ./run.sh /opt/run.sh
 
-ENTRYPOINT cd ${IPROUTE_PATH} && ./configure && make -C ${IPROUTE_PATH} -j $(nproc) && make -C ${IPROUTE_PATH} install && ${LINUX_PATH}/tools/testing/selftests/tc-testing/vm.sh ${ARCH} ${ROOT} ${CPU} ${MEMORY} ${JOBS} ${IMAGE} ${CONFIG} ${DRY} ${CONFIG_GEN} ${SHELL} ${SCRIPT}
+CMD /opt/run.sh

@@ -100,11 +100,11 @@ fi
 
 docker build . -t p4tc_docker
 
-docker run -it --rm --device=/dev/kvm \
-    -v $LINUX_PATH:$LINUX_PATH \
-    -v $IPROUTE_PATH:$IPROUTE_PATH \
-    -e LINUX_PATH="$LINUX_PATH" \
-    -e IPROUTE_PATH="$IPROUTE_PATH" \
+docker run -t --rm --device=/dev/kvm \
+    -v $(realpath $LINUX_PATH):/opt/linux \
+    -v $(realpath $IPROUTE_PATH):/opt/iproute \
+    -e LINUX_PATH="/opt/linux" \
+    -e IPROUTE_PATH="/opt/iproute" \
     -e ARCH="$ARCH" \
     -e ROOT="$ROOTFS" \
     -e CPU="$VMCPUS" \
@@ -116,4 +116,6 @@ docker run -it --rm --device=/dev/kvm \
     -e IMAGE="$KIMG" \
     -e SCRIPT="$CMD" \
     -e SHELL="$VMSHELL" \
-    p4tc_docker \
+    -e UID=`id -u` \
+    -e GID=`id -g` \
+    p4tc_docker
