@@ -1,16 +1,17 @@
 pipeline {
     agent {
-        label "x86"
+        label "s390x"
     }
     environment {
-        x86_CONFIG_FILE = "./config-debug-p4tc-x86"
         FILE_LOG_NAME = "p4tc.log"
+        s390x_CONFIG_FILE = "./config-debug-p4tc-s390x"
+        
     }
     stages {
         stage('Clone Project') {
             steps {
-                git branch: 'master-next', url: "https://github.com/p4tc-dev/linux-p4tc-pub.git"
-                
+                git branch: 'master-next', url: 'https://github.com/p4tc-dev/linux-p4tc-pub.git'
+                sh "git branch"
             }
         }
         stage('Clone Iproute') {
@@ -18,32 +19,34 @@ pipeline {
                 sh "git clone https://github.com/p4tc-dev/iproute2-p4tc-pub.git"
             }
         }
-        stage('Build Iproute') {
-            steps {
-                sh "apt install -y gawk flex bison libelf-dev libmnl-dev pkg-config"
-                sh """
-                cd iproute2-p4tc-pub
-                ./configure
-                make -j\$(nproc)
-                make install
-                cd ..
-                """
-            }
-        }
         stage('Make Config') {
             steps {
-                sh "./scripts/kconfig/merge_config.sh -m ${env.x86_CONFIG_FILE} ./tools/testing/selftests/tc-testing/config"
+                sh "./scripts/kconfig/merge_config.sh -m ${env.s390x_CONFIG_FILE} ./tools/testing/selftests/tc-testing/config"
             }
         }
-        stage('Build') {
+        stage('Build Linux') {
             steps {
                 sh "make -j \$(nproc) mod2yesconfig"
-                sh "make -j \$(nproc) bzImage"
+                sh "make ARCH=s390 CROSS_COMPILE=s390x-linux-gnu- -j \$(nproc)"
+            }
+        }
+        stage('Build Iproute') {
+            steps {
+                sh """
+                echo 'cd iproute2-p4tc-pub && ./configure && make -j 16' > iproute_install.sh
+                chmod +x iproute_install.sh
+                /home/virtme/virtme-run --arch s390x --root /home/s390fs --kimg \$(pwd)/arch/s390/boot/bzImage \
+                --memory 2048M --cpus \$(nproc) --rwdir=\"/mnt=\$(pwd)\" --show-command --script-sh \"cd /mnt &&  ./iproute_install.sh\"
+                make install DESTDIR=/home/s390fs
+                """
             }
         }
         stage('Run Tests') {
             steps {
-                sh "./tools/testing/selftests/tc-testing/vm.sh -f ./config-debug-p4tc-x86 -j \$(nproc) ./tdc.py -c p4tc 2>&1 | tee ${env.FILE_LOG_NAME}"
+                sh """
+                /home/virtme/virtme-run --arch s390x --root /home/s390fs --kimg \$(pwd)/arch/s390/boot/bzImage \
+                --memory 2048M --cpus \$(nproc) --rwdir=\"/mnt=\$(pwd)\" --show-command --script-sh \"cd /mnt/tools/testing/selftests/tc-testing && ./tdc.py -c p4tc\" 2>&1 | tee ${env.FILE_LOG_NAME}
+                """
             }
         }
         stage('Results') {

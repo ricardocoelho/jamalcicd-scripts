@@ -6,6 +6,12 @@ pipeline {
         FILE_LOG_NAME = "p4tc.log"
     }
     stages {
+        stage('Clone Project') {
+            steps {
+                git branch: 'master-next', url: 'https://github.com/p4tc-dev/linux-p4tc-pub.git'
+                sh "git branch"
+            }
+        }
         stage('Clone Iproute') {
             steps {
                 sh "git clone https://github.com/p4tc-dev/iproute2-p4tc-pub.git"
@@ -89,6 +95,13 @@ pipeline {
         }
     }
     post {
+        failure {  
+            emailext (
+              subject: '$DEFAULT_SUBJECT',
+              body: '$DEFAULT_CONTENT',
+              to: '$DEFAULT_RECIPIENTS'
+            )         
+        }
         always {
             cleanWs()
         }

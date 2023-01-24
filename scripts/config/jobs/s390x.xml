@@ -24,17 +24,18 @@
   <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@3583.v4f58de0d78d5">
     <script>pipeline {
     agent {
-        label &quot;x86&quot;
+        label &quot;s390x&quot;
     }
     environment {
-        x86_CONFIG_FILE = &quot;./config-debug-p4tc-x86&quot;
         FILE_LOG_NAME = &quot;p4tc.log&quot;
+        s390x_CONFIG_FILE = &quot;./config-debug-p4tc-s390x&quot;
+        
     }
     stages {
         stage(&apos;Clone Project&apos;) {
             steps {
-                git branch: &apos;master-next&apos;, url: &quot;https://github.com/p4tc-dev/linux-p4tc-pub.git&quot;
-                
+                git branch: &apos;master-next&apos;, url: &apos;https://github.com/p4tc-dev/linux-p4tc-pub.git&apos;
+                sh &quot;git branch&quot;
             }
         }
         stage(&apos;Clone Iproute&apos;) {
@@ -42,32 +43,34 @@
                 sh &quot;git clone https://github.com/p4tc-dev/iproute2-p4tc-pub.git&quot;
             }
         }
-        stage(&apos;Build Iproute&apos;) {
-            steps {
-                sh &quot;apt install -y gawk flex bison libelf-dev libmnl-dev pkg-config&quot;
-                sh &quot;&quot;&quot;
-                cd iproute2-p4tc-pub
-                ./configure
-                make -j\$(nproc)
-                make install
-                cd ..
-                &quot;&quot;&quot;
-            }
-        }
         stage(&apos;Make Config&apos;) {
             steps {
-                sh &quot;./scripts/kconfig/merge_config.sh -m ${env.x86_CONFIG_FILE} ./tools/testing/selftests/tc-testing/config&quot;
+                sh &quot;./scripts/kconfig/merge_config.sh -m ${env.s390x_CONFIG_FILE} ./tools/testing/selftests/tc-testing/config&quot;
             }
         }
-        stage(&apos;Build&apos;) {
+        stage(&apos;Build Linux&apos;) {
             steps {
                 sh &quot;make -j \$(nproc) mod2yesconfig&quot;
-                sh &quot;make -j \$(nproc) bzImage&quot;
+                sh &quot;make ARCH=s390 CROSS_COMPILE=s390x-linux-gnu- -j \$(nproc)&quot;
+            }
+        }
+        stage(&apos;Build Iproute&apos;) {
+            steps {
+                sh &quot;&quot;&quot;
+                echo &apos;cd iproute2-p4tc-pub &amp;&amp; ./configure &amp;&amp; make -j 16&apos; &gt; iproute_install.sh
+                chmod +x iproute_install.sh
+                /home/virtme/virtme-run --arch s390x --root /home/s390fs --kimg \$(pwd)/arch/s390/boot/bzImage \
+                --memory 2048M --cpus \$(nproc) --rwdir=\&quot;/mnt=\$(pwd)\&quot; --show-command --script-sh \&quot;cd /mnt &amp;&amp;  ./iproute_install.sh\&quot;
+                make install DESTDIR=/home/s390fs
+                &quot;&quot;&quot;
             }
         }
         stage(&apos;Run Tests&apos;) {
             steps {
-                sh &quot;./tools/testing/selftests/tc-testing/vm.sh -f ./config-debug-p4tc-x86 -j \$(nproc) ./tdc.py -c p4tc 2&gt;&amp;1 | tee ${env.FILE_LOG_NAME}&quot;
+                sh &quot;&quot;&quot;
+                /home/virtme/virtme-run --arch s390x --root /home/s390fs --kimg \$(pwd)/arch/s390/boot/bzImage \
+                --memory 2048M --cpus \$(nproc) --rwdir=\&quot;/mnt=\$(pwd)\&quot; --show-command --script-sh \&quot;cd /mnt/tools/testing/selftests/tc-testing &amp;&amp; ./tdc.py -c p4tc\&quot; 2&gt;&amp;1 | tee ${env.FILE_LOG_NAME}
+                &quot;&quot;&quot;
             }
         }
         stage(&apos;Results&apos;) {
@@ -109,6 +112,13 @@
         }
     }
     post {
+        failure {  
+            emailext (
+              subject: &apos;$DEFAULT_SUBJECT&apos;,
+              body: &apos;$DEFAULT_CONTENT&apos;,
+              to: &apos;$DEFAULT_RECIPIENTS&apos;
+            )         
+        }
         always {
             cleanWs()
         }

@@ -119,6 +119,13 @@
         }
     }
     post {
+        failure {  
+            emailext (
+              subject: &apos;$DEFAULT_SUBJECT&apos;,
+              body: &apos;$DEFAULT_CONTENT&apos;,
+              to: &apos;$DEFAULT_RECIPIENTS&apos;
+            )         
+        }
         always {
             cleanWs()
         }
