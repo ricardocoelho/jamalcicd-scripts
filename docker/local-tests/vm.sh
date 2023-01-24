@@ -30,14 +30,17 @@ verify_arch() {
       x86)
          QEMU_ARCH="i386"
          LINUX_ARCH="x86"
+         CC="x86_64-linux-gnu-"
          ;;
       x86_64)
          QEMU_ARCH="x86_64"
          LINUX_ARCH="x86"
+         CC="x86_64-linux-gnu-"
          ;;
       s390x)
          QEMU_ARCH="s390x"
          LINUX_ARCH="s390"
+         CC="s390x-linux-gnu-"
          ;;
       *)
          echo "archicteture $1 is not supported"
@@ -50,24 +53,30 @@ verify_arch() {
 # The original configuration file is preserved.
 recrec() {
    if [ "$CROSS" == "y" ]; then
-      echo "Refusing to cross compile the kernel"
-      echo "Provide a pre compiled bzImage"
-      exit 0
+      if [ "$ARCH" != "s390x" ]; then
+         echo "Refusing to cross compile the kernel"
+         echo "Provide a pre compiled bzImage"
+         exit 0
+      fi
    fi
 
    # 'make' command
-   MAKE="make -C $KDIR -j $JOBS"
+   MAKE="make ARCH=$LINUX_ARCH CROSS_COMPILE=$CC -C $KDIR -j $JOBS"
 
    if ! [ -f "$KCONFIG" ]; then
       if [ "$KCONFIG_GEN" == "y" ]; then
          echo "Generating default kernel .config"
          ${MAKE} defconfig
-         ${MAKE} kvm_guest.config
+         if [ "$LINUX_ARCH" == "x86" ]; then
+            ${MAKE} kvm_guest.config
+         fi
       else
          echo "Generate a kernel .config before continuing"
          echo "Recommended:"
          echo -e "\t${MAKE} defconfig"
-         echo -e "\t${MAKE} kvm_guest.config"
+         if [ "$LINUX_ARCH" == "x86" ]; then
+            echo -e "\t${MAKE} kvm_guest.config"
+         fi
          exit 1
       fi
    fi

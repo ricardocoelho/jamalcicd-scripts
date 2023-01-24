@@ -25,6 +25,10 @@ RUN cd /home/virtme && git clone https://github.com/expertisesolutions/virtme.gi
 #Iproute2
 RUN apt install -y gawk flex bison libelf-dev libmnl-dev pkg-config
 
+#s390x tools
+RUN apt-get -y install gcc-s390x-linux-gnu
+RUN apt-get -y install qemu-system-s390x
+
 COPY ./vm.sh /opt/vm.sh
 COPY ./run.sh /opt/run.sh
 
