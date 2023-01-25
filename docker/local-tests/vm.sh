@@ -42,6 +42,11 @@ verify_arch() {
          LINUX_ARCH="s390"
          CC="s390x-linux-gnu-"
          ;;
+      arm64)
+         QEMU_ARCH="aarch64"
+         LINUX_ARCH="arm64"
+         CC="aarch64-linux-gnu-"
+         ;;
       *)
          echo "archicteture $1 is not supported"
          exit 1
@@ -52,14 +57,6 @@ verify_arch() {
 # Reconfigure and recompile the kernel under $KDIR.
 # The original configuration file is preserved.
 recrec() {
-   if [ "$CROSS" == "y" ]; then
-      if [ "$ARCH" != "s390x" ]; then
-         echo "Refusing to cross compile the kernel"
-         echo "Provide a pre compiled bzImage"
-         exit 0
-      fi
-   fi
-
    # 'make' command
    MAKE="make ARCH=$LINUX_ARCH CROSS_COMPILE=$CC -C $KDIR -j $JOBS"
 
@@ -90,7 +87,7 @@ recrec() {
    # We need all modules to be built as "built-in"
    ${MAKE} KCONFIG_CONFIG="$KCONFIG_CONFIG" mod2yesconfig
 
-   ${MAKE} KCONFIG_CONFIG="$KCONFIG_CONFIG" bzImage
+   ${MAKE} KCONFIG_CONFIG="$KCONFIG_CONFIG"
 
    if ! [ -f "$KIMG" ]; then
       echo "Kernel image not found. Build failed?"
@@ -196,7 +193,11 @@ if ! uname -m | grep -q "$LINUX_ARCH"; then
 fi
 
 if [ -z "$_KIMG" ]; then
-   KIMG="$KDIR"/arch/"$LINUX_ARCH"/boot/bzImage
+   if [ "$ARCH" == "arm64" ]; then
+      KIMG="$KDIR"/arch/"$LINUX_ARCH"/boot/Image.gz
+   else
+      KIMG="$KDIR"/arch/"$LINUX_ARCH"/boot/bzImage
+   fi
    if ! [ "$DRYRUN" == "y" ]; then
       recrec
    fi
@@ -226,7 +227,17 @@ if [ "$VMSHELL" == "y" ]; then
       --memory "$VMMEM" \
       --rwdir="/mnt=$KDIR"
 else
-   virtme-run \
+   if [ "$ARCH" == "arm64" ]; then
+      virtme-run \
+      --arch "$QEMU_ARCH" \
+      --root "$ROOTFS" \
+      --kimg "$KIMG" \
+      --cpus "$VMCPUS" \
+      --memory "$VMMEM" \
+      --rwdir="/mnt=$KDIR" \
+      --script-sh "cd /mnt/tools/testing/selftests/tc-testing && $CMD" < /dev/zero
+   else
+      virtme-run \
       --arch "$QEMU_ARCH" \
       --root "$ROOTFS" \
       --kimg "$KIMG" \
@@ -235,4 +246,5 @@ else
       --show-boot-console \
       --rwdir="/mnt=$KDIR" \
       --script-sh "cd /mnt/tools/testing/selftests/tc-testing && $CMD" < /dev/zero
+   fi
 fi

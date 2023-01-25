@@ -28,6 +28,7 @@ KROOT=""
 KIMG=""
 KCONFIG=""
 INAME=""
+CROSS=""
 
 verify_arch() {
    case "$1" in
@@ -45,8 +46,17 @@ verify_arch() {
          ;;
       s390x)
          LINUX_ARCH="s390"
+         CROSS="s390x"
          if [ -z "${KCONFIG}" ]; then
             KCONFIG="-f config-debug-p4tc-s390x"
+         fi
+         ;;
+      arm64)
+         LINUX_ARCH="aarch64"
+         CROSS="aarch64"
+         if [ -z "${KCONFIG}" ]; then
+            #Generate a default config file for now..
+            KCONFIG="-g"
          fi
          ;;
       *)
@@ -126,6 +136,7 @@ docker run --rm -it \
    -v $(realpath $IPROUTE_PATH):/opt/iproute \
    -e LINUX_PATH="/opt/linux" \
    -e IPROUTE_PATH="/opt/iproute" \
+   -e CROSS="$CROSS" \
    -e ARCH="-a $ARCH" \
    -e ROOT="$KROOT" \
    -e CONFIG="$KCONFIG" \

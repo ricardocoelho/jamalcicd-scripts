@@ -9,17 +9,19 @@ echo create user
 
 useradd user -u ${UID} -g ${GID} -m -s /bin/bash
 
-if [[ "$ARCH" == *"s390x"* ]]; then
+if [ -z "$CROSS" ]; then
+
 sudo -u user bash <<EOF
 whoami
 echo compile iproute
 
 cd ${IPROUTE_PATH}
-CC="s390x-linux-gnu-gcc --sysroot=/opt/sysroot" HOSTCC=gcc ./configure
+./configure --prefix=/usr
 
-LDLIBS="-L/opt/sysroot/usr/lib/s390x-linux-gnu -l:libgssapi_krb5.so.2.2 -l:libtirpc.so.3.0.0" make -C ${IPROUTE_PATH} -j $(nproc) V=1
+make -C ${IPROUTE_PATH} -j $(nproc)
 EOF
-make -C ${IPROUTE_PATH} DESTDIR=/opt/sysroot install
+make -C ${IPROUTE_PATH} install
+
 sudo -u user bash <<EOF
 echo compile linux
 cd ${LINUX_PATH}
@@ -32,12 +34,11 @@ whoami
 echo compile iproute
 
 cd ${IPROUTE_PATH}
-./configure --prefix=/usr
+CC="${CROSS}-linux-gnu-gcc --sysroot=/opt/sysroot" HOSTCC=gcc ./configure
 
-make -C ${IPROUTE_PATH} -j $(nproc)
+LDLIBS="-L/opt/sysroot/usr/lib/${CROSS}-linux-gnu -l:libgssapi_krb5.so.2.2 -l:libtirpc.so.3.0.0" make -C ${IPROUTE_PATH} -j $(nproc) V=1
 EOF
-make -C ${IPROUTE_PATH} install
-
+make -C ${IPROUTE_PATH} DESTDIR=/opt/sysroot install
 sudo -u user bash <<EOF
 echo compile linux
 cd ${LINUX_PATH}
