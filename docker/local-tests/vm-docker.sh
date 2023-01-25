@@ -3,42 +3,58 @@
 
 help() {
    cat <<EOF
-Usage: $0 [-h] [-l <linux path>] [-p <>iproute2 path] [-i <bzImage>] [-c vCPU] [-m vRAM] [-j JOBS] [-f config] [-s] [-g] [-d] -- [<command>]
+Usage: $0 [-h] [-l <linux path>] [-p <>iproute2 path] [-i <bzImage>] [-c vCPU] [-m vRAM] [-j JOBS] [-f config] -- [<command>]
 
 Recompile the current kernel, turning on all tc related options in the current .config,
 and run the provided command. The original .config file is always preserved.
 Options:
-        -h            Display this message [Obrigatory].
+        -h            Display this message.
         -l            Path to a p4tc linux folder [Obrigatory].
-        -p            Path to a iproute2 folder.
+        -p            Path to a iproute2 folder [Obrigatory].
         -a            Architecture to use.
-        -r            Root filesystem to use.
         -i            Precompiled bzImage to use.
         -c            Number of vCPUs to use.
         -m            Size of vRAM to use.
         -j            Number of compilation jobs.
         -f            Kernel configuration file to use.
-        -s            Start an interactive shell inside the VM.
-                      No command is run inside the VM.
-        -g            Generate a default kernel config if needed.
-        -d            Dry run. Also prints the QEMU command line.
 EOF
 }
 
 DEFAULT_CMD="./tdc.py -c p4tc"
 LINUX_PATH=""
 IPROUTE_PATH=""
-ARCH=""
-ROOTFS=""
-VMCPUS=""
+ARCH="x86_64"
+KROOT=""
 KIMG=""
-VMMEM=""
-SCRIPT=""
-JOBS=""
 KCONFIG=""
-VMSHELL=""
-KCONFIG_GEN=""
-DRYRUN=""
+INAME=""
+
+verify_arch() {
+   case "$1" in
+      x86)
+         LINUX_ARCH="x86"
+         if [ -z "${KCONFIG}" ]; then
+            KCONFIG="-f config-debug-p4tc-x86"
+         fi
+         ;;
+      x86_64)
+         LINUX_ARCH="x86_64"
+         if [ -z "${KCONFIG}" ]; then
+            KCONFIG="-f config-debug-p4tc-x86"
+         fi
+         ;;
+      s390x)
+         LINUX_ARCH="s390"
+         if [ -z "${KCONFIG}" ]; then
+            KCONFIG="-f config-debug-p4tc-s390x"
+         fi
+         ;;
+      *)
+         echo "archicteture $1 is not supported"
+         exit 1
+         ;;
+   esac
+}
 
 while getopts 'hl:p:a:r:i:c:m:j:f:sgd' OPT; do
    case "$OPT" in
@@ -53,13 +69,13 @@ while getopts 'hl:p:a:r:i:c:m:j:f:sgd' OPT; do
         IPROUTE_PATH="$OPTARG"
         ;;
       a)
-         ARCH="-a $OPTARG"
-         ;;
-      r)
-         ROOTFS="-r $OPTARG"
+         ARCH="$OPTARG"
          ;;
       i)
          KIMG="-i $OPTARG"
+         ;;
+      f)
+         KCONFIG="-f $OPTARG"
          ;;
       c)
          VMCPUS="-c $OPTARG"
@@ -69,18 +85,6 @@ while getopts 'hl:p:a:r:i:c:m:j:f:sgd' OPT; do
          ;;
       j)
          JOBS="-j $OPTARG"
-         ;;
-      f)
-         KCONFIG="-f $OPTARG"
-         ;;
-      s)
-         VMSHELL="-s"
-         ;;
-      g)
-         KCONFIG_GEN="-g"
-         ;;
-      d)
-         DRYRUN="-d"
          ;;
       \? )
          help
@@ -98,24 +102,38 @@ else
    CMD="$@"
 fi
 
-docker build . -t p4tc_docker
+if [ -z "${LINUX_PATH}" ]
+then
+    help
+elif [ -z "${IPROUTE_PATH}" ]
+then
+    help
+fi
 
-docker run -t --rm --device=/dev/kvm \
-    -v $(realpath $LINUX_PATH):/opt/linux \
-    -v $(realpath $IPROUTE_PATH):/opt/iproute \
-    -e LINUX_PATH="/opt/linux" \
-    -e IPROUTE_PATH="/opt/iproute" \
-    -e ARCH="$ARCH" \
-    -e ROOT="$ROOTFS" \
-    -e CPU="$VMCPUS" \
-    -e MEMORY="$VMMEM" \
-    -e JOBS="$JOBS" \
-    -e CONFIG="$KCONFIG" \
-    -e DRY="$DRYRUN" \
-    -e CONFIG_GEN="$KCONFIG_GEN" \
-    -e IMAGE="$KIMG" \
-    -e SCRIPT="$CMD" \
-    -e SHELL="$VMSHELL" \
-    -e UID=`id -u` \
-    -e GID=`id -g` \
-    p4tc_docker
+verify_arch "$ARCH"
+if [ $(uname -m) != "$LINUX_ARCH" ]; then
+   echo "Running tests for $ARCH"
+   KROOT="-r /opt/sysroot"
+   docker build -f Dockerfile.cross-$ARCH -t mojatatucicd/cross-$ARCH .
+   INAME="mojatatucicd/cross-$ARCH"
+else
+   docker build -f Dockerfile -t mojatatucicd/ubuntu .
+   INAME="mojatatucicd/ubuntu"
+fi
+
+docker run --rm -it \
+   -v $(realpath $LINUX_PATH):/opt/linux \
+   -v $(realpath $IPROUTE_PATH):/opt/iproute \
+   -e LINUX_PATH="/opt/linux" \
+   -e IPROUTE_PATH="/opt/iproute" \
+   -e ARCH="-a $ARCH" \
+   -e ROOT="$KROOT" \
+   -e CONFIG="$KCONFIG" \
+   -e IMAGE="$KIMG" \
+   -e SCRIPT="$CMD" \
+   -e CPU="$VMCPUS" \
+   -e MEMORY="$VMMEM" \
+   -e JOBS="$JOBS" \
+   -e UID=`id -u` \
+   -e GID=`id -g` \
+   $INAME

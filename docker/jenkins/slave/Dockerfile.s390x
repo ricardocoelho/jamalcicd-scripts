@@ -33,7 +33,7 @@ RUN apt install -y gawk flex bison libelf-dev libmnl-dev pkg-config libgssapi-kr
 FROM ubuntu:jammy
 
 ENV DEBIAN_FRONTEND noninteractive
-#USER root
+USER root
 
 RUN apt-get update
 
@@ -64,8 +64,8 @@ RUN apt install -y gawk flex bison libelf-dev libmnl-dev pkg-config
 RUN apt-get -y install gcc-s390x-linux-gnu
 RUN apt-get -y install qemu-system-s390x sudo
 
-COPY --from=0 / /opt/sysroot/.
-COPY vm.sh /opt/.
-COPY run.sh /opt/.
+#Java
+RUN apt-get -y install openjdk-11-jdk
 
-CMD /opt/run.sh
+COPY --from=0 / /opt/sysroot/.
+COPY agent.jar /home
