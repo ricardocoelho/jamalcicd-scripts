@@ -21,11 +21,17 @@ The script to execute the tests are similar to the [vm.sh file](https://github.c
 There are two mandatory arguments: -l, that represents a path to your p4tc linux repository and -p that represents a path to your iproute2 repository. The others arguments are the same as the vm.sh file.
 
 ```bash
-./vm-docker.sh -l <LINUX PATH> -p <IPROUTE2_PATH> [...]
+./vm-docker.sh -l <LINUX PATH> -p <IPROUTE2_PATH> [...] -a <ARCH>
 ```
 
-Example:
+Example (x86_64):
 
 ```bash
 ./vm-docker.sh -l /home/user/linux-p4tc-pub -p /home/user/iproute2-p4tc-pub -i /home/user/linux-p4tc-pub/arch/x86/boot/bzImage
+```
+
+Example (s390x):
+
+```bash
+./vm-docker.sh -l /home/user/linux-p4tc-pub -p /home/user/iproute2-p4tc-pub -a s390x
 ```
